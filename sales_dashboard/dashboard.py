@@ -4,9 +4,11 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import os
+
 
 # --- 1. Загрузка и обработка данных ---
-@st.cache_data
+@st.cache_data # Кэшируем данные для ускорения повторных загрузок
 def load_and_process_data():
     # Определяем путь к папке 'Визуализация' относительно местоположения этого скрипта
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,8 +23,11 @@ def load_and_process_data():
         products = pd.read_excel(os.path.join(data_dir, 'Товары.xlsx'))
         fact = pd.read_excel(os.path.join(data_dir, 'Факт продаж.xlsx'))
     except FileNotFoundError as e:
-        st.error(f"Ошибка при загрузке данных: Файл не найден. Проверьте структуру папок. Ошибка: {e}")
+        st.error(f"Ошибка при загрузке данных: Файл не найден. Проверьте структуру папок. Подробности: {e}")
         st.stop() # Останавливаем выполнение приложения
+    except Exception as e: # Ловим другие возможные ошибки (например, с чтением Excel)
+        st.error(f"Ошибка при загрузке данных: {e}")
+        st.stop()
 
     # Обработка данных
     fact['orderdate'] = pd.to_datetime(fact['orderdate'])
@@ -44,14 +49,14 @@ def load_and_process_data():
     calendar_clean = calendar[['orderdate', 'day', 'month', 'year']]
     df = df.merge(calendar_clean, left_on='orderdate', right_on='orderdate', how='left', suffixes=('', '_cal'))
     
-    return df, plan # Возвращаем также план для вопроса 11
+    return df, plan # Возвращаем df и plan_data
 
-# Загружаем данные
+# Загружаем данные один раз при запуске приложения
 df, plan_data = load_and_process_data()
 
-# --- 2. Функции для анализа (те же, что и у вас) ---
-# (Код функций get_top_customers_by_category_country, pareto_analysis и т.д. остается без изменений)
-# Вставьте сюда все 11 функций анализа из вашего файла, например:
+# --- 2. Функции для анализа (все 11 вопросов) ---
+# Вставляем все функции из Pasted_Text_1753964820539.txt
+
 def get_top_customers_by_category_country(category_name, country_name):
     """Вопрос 1: ТОП заказчики по прибыли в категории и стране"""
     filtered = df[(df['categoryname'] == category_name) & (df['country'] == country_name)]
@@ -73,18 +78,109 @@ def pareto_analysis(country_name):
     customer_profit['customer_percentage'] = (customer_profit.index + 1) / len(customer_profit) * 100
     return customer_profit.head(20)
 
-# ... (вставьте остальные 9 функций аналогично) ...
+def get_promising_countries():
+    """Вопрос 3: Перспективные страны"""
+    country_metrics = df.groupby('country').agg({
+        'profit': 'sum',
+        'netsalesamount': 'sum',
+        'name': 'nunique'
+    }).reset_index()
+    country_metrics.columns = ['country', 'total_profit', 'total_sales', 'unique_customers']
+    country_metrics = country_metrics.sort_values('total_profit', ascending=False)
+    return country_metrics
 
-# Для вопроса 11 немного модифицируем функцию, чтобы она принимала данные плана:
-def sales_plan_performance_local(df_local, plan_local): # Изменили имя, чтобы не конфликтовать
+def get_top_managers_by_sales():
+    """Вопрос 4: Менеджеры по объему продаж"""
+    manager_sales = df.groupby('employeename')['netsalesamount'].sum().reset_index()
+    manager_sales = manager_sales.sort_values('netsalesamount', ascending=False)
+    return manager_sales
+
+def analyze_manager_discounts():
+    """Вопрос 5: Менеджеры и скидки"""
+    manager_analysis = df.groupby('employeename').agg({
+        'netsalesamount': 'sum',
+        'discount': 'mean',
+        'quantity': 'sum',
+        'profit': 'sum'
+    }).reset_index()
+    manager_analysis['sales_per_transaction'] = manager_analysis['netsalesamount'] / manager_analysis['quantity']
+    return manager_analysis
+
+def get_productive_weekdays(category_name):
+    """Вопрос 6: Продуктивные дни недели для категории"""
+    filtered = df[df['categoryname'] == category_name]
+    if len(filtered) == 0:
+        return pd.DataFrame()
+    weekday_sales = filtered.groupby('day_of_week')['netsalesamount'].sum().reset_index()
+    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    weekday_sales['day_of_week'] = pd.Categorical(weekday_sales['day_of_week'], categories=day_order, ordered=True)
+    weekday_sales = weekday_sales.sort_values('day_of_week')
+    return weekday_sales
+
+def get_products_by_manager(manager_name):
+    """Вопрос 7: Товары, проданные менеджером"""
+    filtered = df[df['employeename'] == manager_name]
+    if len(filtered) == 0:
+        return pd.DataFrame()
+    result = filtered.groupby(['productname', 'actualunitprice']).agg({
+        'discount': 'mean',
+        'quantity': 'sum',
+        'netsalesamount': 'sum',
+        'profit': 'sum'
+    }).reset_index()
+    return result
+
+def get_top_products_by_category(category_name):
+    """Вопрос 8: ТОП товаров в категории"""
+    filtered = df[df['categoryname'] == category_name]
+    if len(filtered) == 0:
+        return pd.DataFrame()
+    product_performance = filtered.groupby('productname').agg({
+        'quantity': 'sum',
+        'profit': 'sum'
+    }).reset_index()
+    product_performance = product_performance.sort_values('profit', ascending=False)
+    return product_performance.head(10)
+
+def analyze_product_trend(product_name):
+    """Вопрос 9: Анализ тренда товара"""
+    filtered = df[df['productname'] == product_name]
+    if len(filtered) == 0:
+        return pd.DataFrame()
+    product_trend = filtered.groupby('year').agg({
+        'profit': 'sum',
+        'quantity': 'sum',
+        'netsalesamount': 'sum'
+    }).reset_index()
+    return product_trend
+
+def calculate_roi():
+    """Вопрос 10: ROI по годам"""
+    yearly_metrics = df.groupby('year').agg({
+        'profit': 'sum',
+        'supplierprice': 'sum'
+    }).reset_index()
+    yearly_metrics['roi'] = np.where(
+        yearly_metrics['supplierprice'] != 0,
+        (yearly_metrics['profit'] / yearly_metrics['supplierprice']) * 100,
+        0
+    )
+    return yearly_metrics[['year', 'profit', 'supplierprice', 'roi']]
+
+def sales_plan_performance():
     """Вопрос 11: Выполнение плана продаж"""
-    actual = df_local.groupby(df_local['orderdate'].dt.to_period('M')).agg({
+    # Используем оригинальный df, так как анализ должен быть по всем данным
+    actual_df = df 
+    # Используем оригинальный plan_data
+    plan_df = plan_data
+
+    actual = actual_df.groupby(actual_df['orderdate'].dt.to_period('M')).agg({
         'grosssalesamount': 'sum',
         'netsalesamount': 'sum'
     }).reset_index()
     actual['Date'] = actual['orderdate'].dt.to_timestamp()
     
-    plan_monthly = plan_local.groupby(plan_local['Date'].dt.to_period('M')).agg({
+    plan_monthly = plan_df.groupby(plan_df['Date'].dt.to_period('M')).agg({
         'Gross_Plan': 'sum',
         'Net_Plan': 'sum'
     }).reset_index()
@@ -102,6 +198,7 @@ def sales_plan_performance_local(df_local, plan_local): # Изменили им�
         0
     )
     return performance
+
 
 # --- 3. Streamlit Интерфейс ---
 st.set_page_config(page_title="Аналитика продаж", layout="wide")
@@ -372,7 +469,8 @@ with tab10:
 with tab11:
     st.header("11. Выполнение плана продаж")
     # Используем оригинальные данные df и plan_data, так как план фиксирован
-    plan_performance_11 = sales_plan_performance_local(df, plan_data) # Передаем оригинальные данные
+    # и анализ должен показывать выполнение по всем данным
+    plan_performance_11 = sales_plan_performance() # Передаем оригинальные данные
     # Убедимся, что Date в формате datetime
     plan_performance_11['Date'] = pd.to_datetime(plan_performance_11['Date'])
 
