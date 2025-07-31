@@ -6,7 +6,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 
-
 # --- 1. Загрузка и обработка данных ---
 @st.cache_data # Кэшируем данные для ускорения повторных загрузок
 def load_and_process_data():
@@ -55,20 +54,20 @@ def load_and_process_data():
 df, plan_data = load_and_process_data()
 
 # --- 2. Функции для анализа (все 11 вопросов) ---
-# Вставляем все функции из Pasted_Text_1753964820539.txt
+# Все функции модифицированы для приема DataFrame как аргумента
 
-def get_top_customers_by_category_country(category_name, country_name):
+def get_top_customers_by_category_country(df_to_analyze, category_name, country_name):
     """Вопрос 1: ТОП заказчики по прибыли в категории и стране"""
-    filtered = df[(df['categoryname'] == category_name) & (df['country'] == country_name)]
+    filtered = df_to_analyze[(df_to_analyze['categoryname'] == category_name) & (df_to_analyze['country'] == country_name)]
     if len(filtered) == 0:
         return pd.DataFrame(columns=['name', 'profit'])
     result = filtered.groupby('name')['profit'].sum().reset_index()
     result = result.sort_values('profit', ascending=False)
     return result.head(10)
 
-def pareto_analysis(country_name):
+def pareto_analysis(df_to_analyze, country_name):
     """Вопрос 2: 20% заказчиков приносят 80% прибыли в стране"""
-    filtered = df[df['country'] == country_name]
+    filtered = df_to_analyze[df_to_analyze['country'] == country_name]
     if len(filtered) == 0 or filtered['profit'].sum() == 0:
         return pd.DataFrame()
     customer_profit = filtered.groupby('name')['profit'].sum().reset_index()
@@ -78,9 +77,9 @@ def pareto_analysis(country_name):
     customer_profit['customer_percentage'] = (customer_profit.index + 1) / len(customer_profit) * 100
     return customer_profit.head(20)
 
-def get_promising_countries():
+def get_promising_countries(df_to_analyze):
     """Вопрос 3: Перспективные страны"""
-    country_metrics = df.groupby('country').agg({
+    country_metrics = df_to_analyze.groupby('country').agg({
         'profit': 'sum',
         'netsalesamount': 'sum',
         'name': 'nunique'
@@ -89,15 +88,15 @@ def get_promising_countries():
     country_metrics = country_metrics.sort_values('total_profit', ascending=False)
     return country_metrics
 
-def get_top_managers_by_sales():
+def get_top_managers_by_sales(df_to_analyze):
     """Вопрос 4: Менеджеры по объему продаж"""
-    manager_sales = df.groupby('employeename')['netsalesamount'].sum().reset_index()
+    manager_sales = df_to_analyze.groupby('employeename')['netsalesamount'].sum().reset_index()
     manager_sales = manager_sales.sort_values('netsalesamount', ascending=False)
     return manager_sales
 
-def analyze_manager_discounts():
+def analyze_manager_discounts(df_to_analyze):
     """Вопрос 5: Менеджеры и скидки"""
-    manager_analysis = df.groupby('employeename').agg({
+    manager_analysis = df_to_analyze.groupby('employeename').agg({
         'netsalesamount': 'sum',
         'discount': 'mean',
         'quantity': 'sum',
@@ -106,9 +105,9 @@ def analyze_manager_discounts():
     manager_analysis['sales_per_transaction'] = manager_analysis['netsalesamount'] / manager_analysis['quantity']
     return manager_analysis
 
-def get_productive_weekdays(category_name):
+def get_productive_weekdays(df_to_analyze, category_name):
     """Вопрос 6: Продуктивные дни недели для категории"""
-    filtered = df[df['categoryname'] == category_name]
+    filtered = df_to_analyze[df_to_analyze['categoryname'] == category_name]
     if len(filtered) == 0:
         return pd.DataFrame()
     weekday_sales = filtered.groupby('day_of_week')['netsalesamount'].sum().reset_index()
@@ -117,9 +116,9 @@ def get_productive_weekdays(category_name):
     weekday_sales = weekday_sales.sort_values('day_of_week')
     return weekday_sales
 
-def get_products_by_manager(manager_name):
+def get_products_by_manager(df_to_analyze, manager_name):
     """Вопрос 7: Товары, проданные менеджером"""
-    filtered = df[df['employeename'] == manager_name]
+    filtered = df_to_analyze[df_to_analyze['employeename'] == manager_name]
     if len(filtered) == 0:
         return pd.DataFrame()
     result = filtered.groupby(['productname', 'actualunitprice']).agg({
@@ -130,9 +129,9 @@ def get_products_by_manager(manager_name):
     }).reset_index()
     return result
 
-def get_top_products_by_category(category_name):
+def get_top_products_by_category(df_to_analyze, category_name):
     """Вопрос 8: ТОП товаров в категории"""
-    filtered = df[df['categoryname'] == category_name]
+    filtered = df_to_analyze[df_to_analyze['categoryname'] == category_name]
     if len(filtered) == 0:
         return pd.DataFrame()
     product_performance = filtered.groupby('productname').agg({
@@ -142,9 +141,9 @@ def get_top_products_by_category(category_name):
     product_performance = product_performance.sort_values('profit', ascending=False)
     return product_performance.head(10)
 
-def analyze_product_trend(product_name):
+def analyze_product_trend(df_to_analyze, product_name):
     """Вопрос 9: Анализ тренда товара"""
-    filtered = df[df['productname'] == product_name]
+    filtered = df_to_analyze[df_to_analyze['productname'] == product_name]
     if len(filtered) == 0:
         return pd.DataFrame()
     product_trend = filtered.groupby('year').agg({
@@ -154,9 +153,9 @@ def analyze_product_trend(product_name):
     }).reset_index()
     return product_trend
 
-def calculate_roi():
+def calculate_roi(df_to_analyze):
     """Вопрос 10: ROI по годам"""
-    yearly_metrics = df.groupby('year').agg({
+    yearly_metrics = df_to_analyze.groupby('year').agg({
         'profit': 'sum',
         'supplierprice': 'sum'
     }).reset_index()
@@ -167,20 +166,16 @@ def calculate_roi():
     )
     return yearly_metrics[['year', 'profit', 'supplierprice', 'roi']]
 
-def sales_plan_performance():
+def sales_plan_performance(df_local, plan_local):
     """Вопрос 11: Выполнение плана продаж"""
-    # Используем оригинальный df, так как анализ должен быть по всем данным
-    actual_df = df 
-    # Используем оригинальный plan_data
-    plan_df = plan_data
-
-    actual = actual_df.groupby(actual_df['orderdate'].dt.to_period('M')).agg({
+    # Анализ плана обычно проводится по всем данным
+    actual = df_local.groupby(df_local['orderdate'].dt.to_period('M')).agg({
         'grosssalesamount': 'sum',
         'netsalesamount': 'sum'
     }).reset_index()
     actual['Date'] = actual['orderdate'].dt.to_timestamp()
     
-    plan_monthly = plan_df.groupby(plan_df['Date'].dt.to_period('M')).agg({
+    plan_monthly = plan_local.groupby(plan_local['Date'].dt.to_period('M')).agg({
         'Gross_Plan': 'sum',
         'Net_Plan': 'sum'
     }).reset_index()
@@ -214,11 +209,32 @@ selected_years = st.sidebar.multiselect(
 selected_countries = st.sidebar.multiselect(
     "Выберите страны",
     options=sorted(df['country'].unique()),
-    default=sorted(df['country'].unique()) # По умолчанию все страны
+    default=sorted(df['country'].unique())
+)
+# Новые фильтры
+selected_categories = st.sidebar.multiselect(
+    "Выберите категории товаров",
+    options=sorted(df['categoryname'].unique()),
+    default=[] # По умолчанию все категории
+)
+selected_managers = st.sidebar.multiselect(
+    "Выберите менеджеров",
+    options=sorted(df['employeename'].unique()),
+    default=[] # По умолчанию все менеджеры
 )
 
 # Фильтрация основного DataFrame
-filtered_df = df[df['year'].isin(selected_years) & df['country'].isin(selected_countries)]
+filter_conditions = True
+if selected_years:
+    filter_conditions &= df['year'].isin(selected_years)
+if selected_countries:
+    filter_conditions &= df['country'].isin(selected_countries)
+if selected_categories:
+    filter_conditions &= df['categoryname'].isin(selected_categories)
+if selected_managers:
+    filter_conditions &= df['employeename'].isin(selected_managers)
+
+filtered_df = df[filter_conditions]
 
 # Отображение ключевых метрик
 st.header("Ключевые метрики")
@@ -236,10 +252,9 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
 
 with tab1:
     st.header("1. ТОП заказчиков по прибыли")
-    st.subheader("Женская обувь в Германии")
-    # Используем функцию с отфильтрованными данными или глобальными?
-    # Для специфического запроса лучше использовать исходные данные df
-    top_customers_1 = get_top_customers_by_category_country("Женская обувь", "Германия")
+    st.subheader("Женская обувь в Германии (с учетом фильтров)")
+    st.info("Анализ проводится по отфильтрованным данным (выбранные года, страны, категории, менеджеры)")
+    top_customers_1 = get_top_customers_by_category_country(filtered_df, "Женская обувь", "Германия")
     if not top_customers_1.empty:
         st.dataframe(top_customers_1)
         fig1 = px.bar(
@@ -253,12 +268,13 @@ with tab1:
         fig1.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig1, use_container_width=True)
     else:
-        st.warning("Нет данных для выбранной категории и страны.")
+        st.warning("Нет данных для выбранной категории и страны после применения фильтров.")
 
 with tab2:
     st.header("2. Анализ Парето (20/80)")
-    st.subheader("Бразилия")
-    pareto_data_2 = pareto_analysis("Бразилия")
+    st.subheader("Бразилия (с учетом фильтров)")
+    st.info("Анализ проводится по отфильтрованным данным")
+    pareto_data_2 = pareto_analysis(filtered_df, "Бразилия")
     if not pareto_data_2.empty:
         st.dataframe(pareto_data_2)
         fig2 = go.Figure()
@@ -283,19 +299,12 @@ with tab2:
         )
         st.plotly_chart(fig2, use_container_width=True)
     else:
-        st.warning("Нет данных для анализа Парето по Бразилии.")
+        st.warning("Нет данных для анализа Парето по Бразилии после применения фильтров.")
 
 with tab3:
     st.header("3. Перспективные страны")
-    # Используем отфильтрованные данные
-    countries_3 = filtered_df.groupby('country').agg({
-        'profit': 'sum',
-        'netsalesamount': 'sum',
-        'name': 'nunique'
-    }).reset_index()
-    countries_3.columns = ['country', 'total_profit', 'total_sales', 'unique_customers']
-    countries_3 = countries_3.sort_values('total_profit', ascending=False)
-
+    st.info("Анализ проводится по отфильтрованным данным")
+    countries_3 = get_promising_countries(filtered_df)
     if not countries_3.empty:
         st.dataframe(countries_3)
         fig3 = px.bar(
@@ -309,14 +318,12 @@ with tab3:
         fig3.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig3, use_container_width=True)
     else:
-        st.warning("Нет данных по странам.")
+        st.warning("Нет данных по странам после применения фильтров.")
 
 with tab4:
     st.header("4. ТОП менеджеров по объему продаж")
-    # Используем отфильтрованные данные
-    manager_sales_4 = filtered_df.groupby('employeename')['netsalesamount'].sum().reset_index()
-    manager_sales_4 = manager_sales_4.sort_values('netsalesamount', ascending=False)
-
+    st.info("Анализ проводится по отфильтрованным данным")
+    manager_sales_4 = get_top_managers_by_sales(filtered_df)
     if not manager_sales_4.empty:
         st.dataframe(manager_sales_4)
         fig4 = px.bar(
@@ -330,19 +337,12 @@ with tab4:
         fig4.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig4, use_container_width=True)
     else:
-        st.warning("Нет данных по менеджерам.")
+        st.warning("Нет данных по менеджерам после применения фильтров.")
 
 with tab5:
     st.header("5. Менеджеры и скидки")
-    # Используем отфильтрованные данные
-    manager_discounts_5 = filtered_df.groupby('employeename').agg({
-        'netsalesamount': 'sum',
-        'discount': 'mean',
-        'quantity': 'sum',
-        'profit': 'sum'
-    }).reset_index()
-    manager_discounts_5['sales_per_transaction'] = manager_discounts_5['netsalesamount'] / manager_discounts_5['quantity']
-
+    st.info("Анализ проводится по отфильтрованным данным")
+    manager_discounts_5 = analyze_manager_discounts(filtered_df)
     if not manager_discounts_5.empty:
         st.dataframe(manager_discounts_5)
         fig5 = px.scatter(
@@ -357,12 +357,13 @@ with tab5:
         )
         st.plotly_chart(fig5, use_container_width=True)
     else:
-        st.warning("Нет данных по менеджерам.")
+        st.warning("Нет данных по менеджерам после применения фильтров.")
 
 with tab6:
     st.header("6. Продуктивные дни недели")
-    st.subheader("Одежда для новорожденных")
-    weekdays_6 = get_productive_weekdays("Одежда для новорожденных") # Используем исходные данные для конкретного запроса
+    st.subheader("Одежда для новорожденных (с учетом фильтров)")
+    st.info("Анализ проводится по отфильтрованным данным")
+    weekdays_6 = get_productive_weekdays(filtered_df, "Одежда для новорожденных")
     if not weekdays_6.empty:
         st.dataframe(weekdays_6)
         fig6 = px.bar(
@@ -375,14 +376,15 @@ with tab6:
         )
         st.plotly_chart(fig6, use_container_width=True)
     else:
-        st.warning("Нет данных для категории 'Одежда для новорожденных'.")
+        st.warning("Нет данных для категории 'Одежда для новорожденных' после применения фильтров.")
 
 with tab7:
     st.header("7. Товары, проданные Матвеем Крыловым")
-    matvey_products_7 = get_products_by_manager("Матвей Крылов") # Используем исходные данные
+    st.subheader("(с учетом фильтров)")
+    st.info("Анализ проводится по отфильтрованным данным")
+    matvey_products_7 = get_products_by_manager(filtered_df, "Матвей Крылов")
     if not matvey_products_7.empty:
         st.dataframe(matvey_products_7)
-        # Визуализация топ по прибыли
         matvey_top = matvey_products_7.nlargest(10, 'profit')
         if not matvey_top.empty:
             fig7 = px.bar(
@@ -396,12 +398,13 @@ with tab7:
             fig7.update_layout(xaxis_tickangle=-45)
             st.plotly_chart(fig7, use_container_width=True)
     else:
-        st.warning("Нет данных о продажах Матвея Крылова.")
+        st.warning("Нет данных о продажах Матвея Крылова после применения фильтров.")
 
 with tab8:
     st.header("8. ТОП товаров категории")
-    st.subheader("Пляжная одежда")
-    beach_products_8 = get_top_products_by_category("Пляжная одежда") # Используем исходные данные
+    st.subheader("Пляжная одежда (с учетом фильтров)")
+    st.info("Анализ проводится по отфильтрованным данным")
+    beach_products_8 = get_top_products_by_category(filtered_df, "Пляжная одежда")
     if not beach_products_8.empty:
         st.dataframe(beach_products_8)
         fig8 = px.bar(
@@ -414,15 +417,16 @@ with tab8:
         fig8.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig8, use_container_width=True)
     else:
-        st.warning("Нет данных для категории 'Пляжная одежда'.")
+        st.warning("Нет данных для категории 'Пляжная одежда' после применения фильтров.")
 
 with tab9:
     st.header("9. Тренд товара")
+    st.info("Анализ проводится по отфильтрованным данным")
     # Используем первый товар из отфильтрованных данных для демонстрации
     if not filtered_df.empty:
         sample_product_9 = filtered_df['productname'].iloc[0]
         st.subheader(f"Анализ товара: {sample_product_9}")
-        product_trend_9 = analyze_product_trend(sample_product_9) # Используем исходные данные df
+        product_trend_9 = analyze_product_trend(filtered_df, sample_product_9)
         if not product_trend_9.empty:
             st.dataframe(product_trend_9)
             fig9 = px.line(
@@ -434,24 +438,14 @@ with tab9:
             )
             st.plotly_chart(fig9, use_container_width=True)
         else:
-            st.warning("Нет данных для тренда этого товара.")
+            st.warning("Нет данных для тренда этого товара после применения фильтров.")
     else:
-        st.warning("Нет данных для анализа тренда.")
+        st.warning("Нет данных для анализа тренда после применения фильтров.")
 
 with tab10:
     st.header("10. Коэффициент возврата инвестиций (ROI)")
-    # Используем отфильтрованные данные
-    yearly_metrics_10 = filtered_df.groupby('year').agg({
-        'profit': 'sum',
-        'supplierprice': 'sum'
-    }).reset_index()
-    yearly_metrics_10['roi'] = np.where(
-        yearly_metrics_10['supplierprice'] != 0,
-        (yearly_metrics_10['profit'] / yearly_metrics_10['supplierprice']) * 100,
-        0
-    )
-    roi_data_10 = yearly_metrics_10[['year', 'profit', 'supplierprice', 'roi']]
-
+    st.info("Анализ проводится по отфильтрованным данным")
+    roi_data_10 = calculate_roi(filtered_df)
     if not roi_data_10.empty:
         st.dataframe(roi_data_10)
         fig10 = px.line(
@@ -464,14 +458,13 @@ with tab10:
         )
         st.plotly_chart(fig10, use_container_width=True)
     else:
-        st.warning("Нет данных для расчета ROI.")
+        st.warning("Нет данных для расчета ROI после применения фильтров.")
 
 with tab11:
     st.header("11. Выполнение плана продаж")
+    st.info("Анализ выполнения плана показан по всем историческим данным")
     # Используем оригинальные данные df и plan_data, так как план фиксирован
-    # и анализ должен показывать выполнение по всем данным
-    plan_performance_11 = sales_plan_performance() # Передаем оригинальные данные
-    # Убедимся, что Date в формате datetime
+    plan_performance_11 = sales_plan_performance(df, plan_data)
     plan_performance_11['Date'] = pd.to_datetime(plan_performance_11['Date'])
 
     if not plan_performance_11.empty:
@@ -491,7 +484,6 @@ with tab11:
             name='Выполнение плана (Net Sales)',
             line=dict(color='orange')
         ))
-        # Добавим линию 100% для ориентира
         fig11.add_hline(y=100, line_dash="dash", line_color="red", annotation_text="100% План")
         fig11.update_layout(
             title='Выполнение плана продаж по месяцам',
