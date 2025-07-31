@@ -6,15 +6,23 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # --- 1. Загрузка и обработка данных ---
-@st.cache_data # Кэшируем данные для ускорения повторных загрузок
+@st.cache_data
 def load_and_process_data():
-    path = 'Визуализация/' # Используем прямой слэш для кроссплатформенности
-    calendar = pd.read_excel(path + 'Календарь.xlsx')
-    partner = pd.read_excel(path + 'Контрагенты.xlsx')
-    plan = pd.read_excel(path + 'План по категориям.xlsx')
-    staff = pd.read_excel(path + 'Сотрудники.xlsx')
-    products = pd.read_excel(path + 'Товары.xlsx')
-    fact = pd.read_excel(path + 'Факт продаж.xlsx')
+    # Определяем путь к папке 'Визуализация' относительно местоположения этого скрипта
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(script_dir, "Визуализация")
+
+    # Загружаем файлы, используя полный путь
+    try:
+        calendar = pd.read_excel(os.path.join(data_dir, 'Календарь.xlsx'))
+        partner = pd.read_excel(os.path.join(data_dir, 'Контрагенты.xlsx'))
+        plan = pd.read_excel(os.path.join(data_dir, 'План по категориям.xlsx'))
+        staff = pd.read_excel(os.path.join(data_dir, 'Сотрудники.xlsx'))
+        products = pd.read_excel(os.path.join(data_dir, 'Товары.xlsx'))
+        fact = pd.read_excel(os.path.join(data_dir, 'Факт продаж.xlsx'))
+    except FileNotFoundError as e:
+        st.error(f"Ошибка при загрузке данных: Файл не найден. Проверьте структуру папок. Ошибка: {e}")
+        st.stop() # Останавливаем выполнение приложения
 
     # Обработка данных
     fact['orderdate'] = pd.to_datetime(fact['orderdate'])
